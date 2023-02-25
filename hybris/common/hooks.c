@@ -918,8 +918,10 @@ static int _hybris_hook_pthread_cond_destroy(pthread_cond_t *cond)
          * when it is destroyed and bionic code does not always follow this
          * requirement. To prevent deadlocks reset the reference count of the
          * condition variable. */
+	#ifdef __GLIBC__
         realcond->__data.__wrefs = 0;
-        ret = pthread_cond_destroy(realcond);
+        #endif
+	ret = pthread_cond_destroy(realcond);
         free(realcond);
     }
     else {
@@ -1555,11 +1557,14 @@ static int _hybris_hook_fgetpos64(FILE *fp, bionic_fpos64_t *pos)
 {
     TRACE_HOOK("fp %p pos %p", fp, pos);
 
+#ifdef __GLIBC__
     fpos64_t my_fpos;
     int ret = fgetpos64(_get_actual_fp(fp), &my_fpos);
 
     *pos = my_fpos.__pos;
-
+#else
+    int ret = fgetpos64(_get_actual_fp(fp), pos);
+#endif
     return ret;
 }
 
@@ -1672,12 +1677,15 @@ static int _hybris_hook_fsetpos(FILE *fp, const bionic_fpos_t *pos)
 static int _hybris_hook_fsetpos64(FILE *fp, const bionic_fpos64_t *pos)
 {
     TRACE_HOOK("fp %p pos %p", fp, pos);
-
+#ifdef __GLIBC__
     fpos64_t my_fpos;
     my_fpos.__pos = *pos;
     memset(&my_fpos.__state, 0, sizeof(mbstate_t));
 
     return fsetpos64(_get_actual_fp(fp), &my_fpos);
+#else
+    return fsetpos64(_get_actual_fp(fp), pos);
+#endif
 }
 
 static long _hybris_hook_ftell(FILE *fp)
@@ -3360,8 +3368,10 @@ static struct _hook hooks_n[] = {
     HOOK_INDIRECT(freopen64),
     HOOK_INDIRECT(fileno_unlocked),
     /* dirent.h */
+#ifdef __GLIBC__
     HOOK_INDIRECT(scandirat),
     HOOK_TO(scandirat64, _hybris_hook_scandirat),
+#endif
 };
 
 static struct _hook hooks_p[] = {
